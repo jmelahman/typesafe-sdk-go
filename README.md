@@ -109,6 +109,33 @@ typesafe.Choice("What is the tone?", typesafe.ChoiceCriteria{
 Requests are validated locally before they are sent: at least one question,
 non-empty choice criteria, and at least two score levels.
 
+### Typed choice labels
+
+Build a choice question with `ChoiceOf` to use your own label type, and read it
+with `ChoiceAs` to get the selection back as that type:
+
+```go
+type Team string
+
+const (
+	Billing Team = "billing"
+	Support Team = "support"
+)
+
+questions := typesafe.Questions{
+	"team": typesafe.ChoiceOf("Which team should handle this?", map[Team]typesafe.Content{
+		Billing: "Payments, invoices, refunds, or charges",
+		Support: "Product problems and how-to questions",
+	}),
+}
+
+// after SystemOne:
+team, err := typesafe.ChoiceAs[Team](res, "team") // team.Choice is a Team
+```
+
+This is safe because response verification (below) has already checked that
+the selected label is one of the criteria keys you sent.
+
 ## Reading answers
 
 Use the typed getters rather than a type switch. They distinguish a misspelled
@@ -136,6 +163,26 @@ labels and score levels that correspond to the criteria you sent. A mismatch is 
 An answer of a type this SDK does not know becomes an `UnknownAnswer` holding the
 original JSON. That is deliberately *not* a mismatch, so a future answer type
 does not break existing code.
+
+## Batches
+
+`SystemOneBatch` sends many independent requests with a limit on how many are in
+flight, and returns their results in the order of the requests. Each request
+succeeds or fails on its own; once the context ends, requests that have not
+started fail with its error without being sent.
+
+```go
+for i, r := range client.SystemOneBatch(ctx, reqs, 4) {
+	if r.Err != nil {
+		log.Printf("request %d: %v", i, r.Err)
+		continue
+	}
+	// use r.Response
+}
+```
+
+Every request retries independently, so a high concurrency multiplies the load
+on a rate-limited key.
 
 ## Configuration
 

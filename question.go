@@ -142,6 +142,25 @@ func Choice(instructions Content, criteria ChoiceCriteria) ChoiceQuestion {
 	return ChoiceQuestion{Instructions: instructions, Criteria: criteria}
 }
 
+// ChoiceOf is [Choice] with labels of your own string type, such as an enum of
+// constants. Read its answer with [ChoiceAs] to get the selection back as T.
+//
+//	type Tone string
+//
+//	const (
+//		Calm  Tone = "calm"
+//		Angry Tone = "angry"
+//	)
+//
+//	typesafe.ChoiceOf("What is the tone?", map[Tone]typesafe.Content{Calm: nil, Angry: nil})
+func ChoiceOf[T ~string](instructions Content, criteria map[T]Content) ChoiceQuestion {
+	c := make(ChoiceCriteria, len(criteria))
+	for label, description := range criteria {
+		c[string(label)] = description
+	}
+	return Choice(instructions, c)
+}
+
 // Score returns a question that rates the state against an ordered rubric. Each
 // description's position is its score, starting at zero, so criteria must list
 // at least two levels, lowest first.

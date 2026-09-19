@@ -107,6 +107,76 @@ func ExampleSystemOneResponse_Noul() {
 	// true typesafe: answer "topic" is a choice answer, not noul
 }
 
+// ChoiceOf and ChoiceAs let a choice question use your own label type, so the
+// answer comes back as one of your constants rather than a bare string.
+func ExampleChoiceAs() {
+	type Team string
+	const (
+		Billing Team = "billing"
+		Support Team = "support"
+	)
+
+	client, err := typesafe.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := client.SystemOne(context.Background(), typesafe.SystemOneRequest{
+		State: "I was charged twice for my subscription.",
+		Questions: typesafe.Questions{
+			"team": typesafe.ChoiceOf("Which team should handle this message?", map[Team]typesafe.Content{
+				Billing: "Payments, invoices, refunds, or charges",
+				Support: "Product problems and how-to questions",
+			}),
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	team, err := typesafe.ChoiceAs[Team](res, "team")
+	if err != nil {
+		log.Fatal(err)
+	}
+	switch team.Choice {
+	case Billing:
+		fmt.Println("route to billing")
+	case Support:
+		fmt.Println("route to support")
+	}
+}
+
+// SystemOneBatch asks many independent requests at once, with a limit on how
+// many are in flight. Results are in the order of the requests.
+func ExampleClient_SystemOneBatch() {
+	client, err := typesafe.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	messages := []string{"Buy now!", "Lunch at noon?", "You won a prize!"}
+	reqs := make([]typesafe.SystemOneRequest, len(messages))
+	for i, m := range messages {
+		reqs[i] = typesafe.SystemOneRequest{
+			State:     m,
+			Questions: typesafe.Questions{"spam": typesafe.Noul("Is this message spam?")},
+		}
+	}
+
+	for i, r := range client.SystemOneBatch(context.Background(), reqs, 4) {
+		if r.Err != nil {
+			log.Printf("%q: %v", messages[i], r.Err)
+			continue
+		}
+		spam, err := r.Response.Noul("spam")
+		if err != nil {
+			log.Printf("%q: %v", messages[i], err)
+			continue
+		}
+		fmt.Printf("%q spam=%.2f\n", messages[i], spam.Noul)
+	}
+}
+
 // Retries are configurable per client or per call. Use the request context for
 // a deadline across all attempts.
 func ExampleWithRetry() {

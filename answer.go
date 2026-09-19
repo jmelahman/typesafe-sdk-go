@@ -42,6 +42,14 @@ type ChoiceAnswer struct {
 	Probabilities map[string]float64 `json:"probabilities"`
 }
 
+// TypedChoiceAnswer is a [ChoiceAnswer] whose labels have your own string type.
+// Get one with [ChoiceAs]. The fields mean what they do on [ChoiceAnswer].
+type TypedChoiceAnswer[T ~string] struct {
+	Choice        T
+	Confidence    float64
+	Probabilities map[T]float64
+}
+
 // ScoreAnswer answers a [ScoreQuestion].
 type ScoreAnswer struct {
 	// Score is the probability-weighted position on the rubric, so it is

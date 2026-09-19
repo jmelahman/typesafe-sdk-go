@@ -134,6 +134,34 @@ func (r *SystemOneResponse) Score(name string) (ScoreAnswer, error) {
 	return answerAs[ScoreAnswer](r.Answers, name, KindScore)
 }
 
+// ChoiceAs returns the [ChoiceAnswer] named name with its labels converted to
+// T, for a question built with [ChoiceOf]. It returns the same errors as
+// [SystemOneResponse.Choice].
+//
+// The conversion is sound because [Client.SystemOne] has already checked that
+// the selected label and every probability key are criteria keys, which for a
+// [ChoiceOf] question are values of T. A response assembled by hand is not
+// checked.
+//
+// Nothing ties T to the type the question was built with: ChoiceAs[Priority]
+// on a question built with ChoiceOf[Team] compiles and converts Team labels to
+// Priority. Use the same T for both.
+func ChoiceAs[T ~string](r *SystemOneResponse, name string) (TypedChoiceAnswer[T], error) {
+	answer, err := r.Choice(name)
+	if err != nil {
+		return TypedChoiceAnswer[T]{}, err
+	}
+	probabilities := make(map[T]float64, len(answer.Probabilities))
+	for label, p := range answer.Probabilities {
+		probabilities[T(label)] = p
+	}
+	return TypedChoiceAnswer[T]{
+		Choice:        T(answer.Choice),
+		Confidence:    answer.Confidence,
+		Probabilities: probabilities,
+	}, nil
+}
+
 // answerAs looks up one answer and asserts it to the wanted type. The wanted
 // kind is passed as data because a zero T has no usable Kind of its own.
 func answerAs[T Answer](answers Answers, name string, want Kind) (T, error) {

@@ -88,13 +88,19 @@ func simpleRequest() SystemOneRequest {
 // recording delays instead of waiting.
 func testClient(t *testing.T, baseURL string, opts ...Option) (*Client, *[]time.Duration) {
 	t.Helper()
-	var delays []time.Duration
+	var (
+		mu     sync.Mutex
+		delays []time.Duration
+	)
 	base := []Option{
 		WithAPIKey("sk-test"),
 		WithBaseURL(baseURL),
 		withRand(noJitter),
 		withSleep(func(ctx context.Context, d time.Duration) error {
+			// Locked because SystemOneBatch calls SystemOne concurrently.
+			mu.Lock()
 			delays = append(delays, d)
+			mu.Unlock()
 			return ctx.Err()
 		}),
 	}

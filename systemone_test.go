@@ -176,3 +176,46 @@ func TestVerifyRejectsOutOfRangeScore(t *testing.T) {
 		t.Errorf("verifyAnswers() = %v, want nil for an in-range score", err)
 	}
 }
+
+type tone string
+
+const (
+	toneAngry tone = "angry"
+	toneCalm  tone = "calm"
+)
+
+func TestChoiceOf(t *testing.T) {
+	t.Parallel()
+
+	q := ChoiceOf("What is the tone?", map[tone]Content{toneAngry: "Hostile", toneCalm: nil})
+	got, err := json.Marshal(q)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	want := `{"type":"choice","instructions":"What is the tone?","criteria":{"angry":"Hostile","calm":null}}`
+	if string(got) != want {
+		t.Errorf("Marshal = %s, want %s", got, want)
+	}
+}
+
+func TestChoiceAs(t *testing.T) {
+	t.Parallel()
+
+	res := &SystemOneResponse{Answers: answers()}
+	got, err := ChoiceAs[tone](res, "tone")
+	if err != nil {
+		t.Fatalf("ChoiceAs: %v", err)
+	}
+	if got.Choice != toneAngry || got.Probabilities[toneCalm] != 0.1 || len(got.Probabilities) != 2 {
+		t.Errorf("ChoiceAs = %+v, want angry with both probabilities", got)
+	}
+
+	var missing *NoAnswerError
+	if _, err := ChoiceAs[tone](res, "tones"); !errors.As(err, &missing) {
+		t.Errorf("ChoiceAs(missing) = %v, want *NoAnswerError", err)
+	}
+	var wrongKind *AnswerKindError
+	if _, err := ChoiceAs[tone](res, "spam"); !errors.As(err, &wrongKind) {
+		t.Errorf("ChoiceAs(noul) = %v, want *AnswerKindError", err)
+	}
+}
